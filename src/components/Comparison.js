@@ -13,21 +13,26 @@ export default class Comparison extends Component {
             selectedCountries: [],
             chartOptions: {
 
+                chart: {
+                    width: 1280,
+                },
+
                 title: {
-                    text: 'Solar Employment Growth by Sector, 2010-2016'
+                    text: 'COVID-19 Deaths'
                 },
 
                 subtitle: {
-                    text: 'Source: thesolarfoundation.com'
+                    text: 'Source: covid19api.com'
                 },
 
                 yAxis: {
                     title: {
-                        text: 'Number of Employees'
+                        text: 'Deaths / 1M'
                     }
                 },
 
                 xAxis: {
+                    type: 'datetime',
                     accessibility: {
                         rangeDescription: 'Range: 2010 to 2017'
                     }
@@ -48,22 +53,7 @@ export default class Comparison extends Component {
                     }
                 },
 
-                series: [{
-                    name: 'Installation',
-                    data: [43934, 52503, 57177, 69658, 97031, 119931, 137133, 154175]
-                }, {
-                    name: 'Manufacturing',
-                    data: [24916, 24064, 29742, 29851, 32490, 30282, 38121, 40434]
-                }, {
-                    name: 'Sales & Distribution',
-                    data: [11744, 17722, 16005, 19771, 20185, 24377, 32147, 39387]
-                }, {
-                    name: 'Project Development',
-                    data: [null, null, 7988, 12169, 15112, 22452, 34400, 34227]
-                }, {
-                    name: 'Other',
-                    data: [12908, 5948, 8105, 11248, 8989, 11816, 18274, 18111]
-                }],
+                series: [],
 
                 responsive: {
                     rules: [{
@@ -112,22 +102,31 @@ export default class Comparison extends Component {
     }
 
     async componentDidUpdate(prevProps, { selectedCountries: prevSelected }) {
-        const { selectedCountries: currSelected, chartOptions: { series } } = this.state;
+        const { countries, selectedCountries: currSelected, chartOptions: { series } } = this.state;
         const newlySelected = _.difference(currSelected, prevSelected);
         const noLongerSelected = _.difference(prevSelected, currSelected);
         if (noLongerSelected.length > 0 || newlySelected.length > 0) {
-            const newCountriesData = await Promise.all(newlySelected.map(country =>
-                fetch(`https://api.covid19api.com/country/${country}/status/deaths`)
-                    .then(response => response.ok ? response.json() : [])));
+            const responseJson = response => response.ok ? response.json() : [];
+            const codes = countries
+                .filter(({ Slug: slug }) => newlySelected.includes(slug))
+                .map(({ ISO2: code }) => code.toLowerCase());
+            const newCountriesResponse = fetch(`https://restcountries.eu/rest/v2/alpha?codes=${codes.join(';')}`).then(responseJson);
+            const newCountriesCovidResponse = Promise.all(newlySelected.map(country => fetch(`https://api.covid19api.com/total/country/${country}/status/deaths`).then(responseJson)));
+            const newCountriesData = await newCountriesResponse;
+            const newCountriesCovidData = await newCountriesCovidResponse;
             this.setState({
                 chartOptions: {
                     series: [
                         ...series.filter(({ id }) => currSelected.includes(id)),
-                        ...newCountriesData.map((countryData, i) => ({
-                            id: newlySelected[i],
-                            name: countryData[0].Country,
-                            data: countryData.map(({ Date: date, Cases: cases }) => [date, cases]),
-                        })),
+                        ...newCountriesCovidData.map((countryData, i) => {
+                            const { population } = newCountriesData[i];
+                            const { Country: name } = this.state.countries.find(({ Slug: slug }) => slug === newlySelected[i]);
+                            return {
+                                id: newlySelected[i],
+                                name: name,
+                                data: countryData.map(({ Date: date, Cases: cases }) => [Date.parse(date), cases / population * 1000000]),
+                            };
+                        }),
                     ],
                 },
             });
