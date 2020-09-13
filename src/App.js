@@ -13,12 +13,12 @@ function App() {
             <Route path="/countries/summary">
               <Summary />
             </Route>
-            <Route path="/countries/:countries/status/:status">
+            <Route path="/countries/comparison">
               <Comparison />
             </Route>
             <Route path="/">
               <Link to="/countries/summary">Summary</Link>
-              <Link to="/countries/us;italy;spain;belgium;china/status/confirmed">Comparison</Link>
+              <Link to="/countries/comparison">Comparison</Link>
             </Route>
           </Switch>
         </Router>
