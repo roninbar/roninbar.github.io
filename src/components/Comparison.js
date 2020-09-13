@@ -106,6 +106,7 @@ export default class Comparison extends Component {
         const response = await fetch('https://api.covid19api.com/countries');
         if (response.status === 200) {
             const countries = await response.json();
+            countries.sort(({ Country: a }, { Country: b }) => a < b ? -1 : +1);
             this.setState({ countries });
         }
     }
