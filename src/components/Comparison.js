@@ -106,10 +106,10 @@ export default class Comparison extends Component {
         const newlySelected = _.difference(currSelected, prevSelected);
         const noLongerSelected = _.difference(prevSelected, currSelected);
         if (noLongerSelected.length > 0 || newlySelected.length > 0) {
-            const responseJson = response => response.ok ? response.json() : [];
             const codes = countries
                 .filter(({ Slug: slug }) => newlySelected.includes(slug))
                 .map(({ ISO2: code }) => code);
+            const responseJson = response => response.ok ? response.json() : [];
             const newCountriesResponse = fetch(`https://restcountries.eu/rest/v2/alpha?codes=${codes.join(';').toLowerCase()}`).then(responseJson);
             const newCountriesCovidResponse = Promise.all(newlySelected.map(country => fetch(`https://api.covid19api.com/total/country/${country}/status/deaths`).then(responseJson)));
             const newCountriesData = await newCountriesResponse;
@@ -117,14 +117,16 @@ export default class Comparison extends Component {
             this.setState({
                 chartOptions: {
                     series: [
+                        // Keep existing series that are still selected.
                         ...series.filter(({ id }) => currSelected.includes(id)),
-                        ...newCountriesCovidData.map((countryData, i) => {
+                        // Add series for newly selected countries.
+                        ...newCountriesCovidData.map((countryCovidData, i) => {
                             const { population } = newCountriesData[i];
                             const { Country: name } = this.state.countries.find(({ Slug: slug }) => slug === newlySelected[i]);
                             return {
                                 id: newlySelected[i],
                                 name: name,
-                                data: countryData.map(({ Date: date, Cases: cases }) => [Date.parse(date), cases / population * 1000000]),
+                                data: countryCovidData.map(({ Date: date, Cases: cases }) => [Date.parse(date), cases / population * 1000000]),
                             };
                         }),
                     ],
